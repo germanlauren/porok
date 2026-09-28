@@ -1,0 +1,73 @@
+#!/bin/bash
+#PBS -N porok
+#PBS -j oe
+#PBS -o logs/
+#PBS -l select=1:ncpus=6:mem=8gb
+#PBS -l walltime=24:00:00
+#PBS -J 0-4
+###PBS -q CAMBIAR
+###PBS -A CAMBIAR
+#
+# Equivalente PBS/Torque de trabajo.slurm. Misma logica; las diferencias:
+#
+#   * el indice del array es PBS_ARRAY_INDEX, no SLURM_ARRAY_TASK_ID
+#   * PBS no reencola solo, asi que al terminar el tramo el propio trabajo se
+#     vuelve a encolar con qsub si la corrida no llego a gamma_fin. El efecto
+#     es el mismo: el walltime no tiene que alcanzar para la trayectoria entera.
+#   * se arranca en $PBS_O_WORKDIR, que es desde donde se hizo qsub
+#
+# Ajustar arriba: -q (cola), -A (cuenta) y el walltime que permita la cola.
+
+set -uo pipefail
+cd "${PBS_O_WORKDIR:-$(dirname "$0")/..}"
+mkdir -p logs
+
+# shellcheck disable=SC1091
+source scripts/entorno.sh
+if [[ -z "${PY:-}" ]]; then
+    echo "ERROR: no hay python con numpy y scipy. Correr scripts/preflight.sh"
+    exit 1
+fi
+
+TRAYECTORIAS=(P1_uniaxial P2_cizalla P3_confinada
+              P4_no_proporcional P5_excursion_grande)
+SEMILLAS=(${SEMILLAS_POROK:-20260914 20260915 20260916})
+
+i=${PBS_ARRAY_INDEX:-0}
+n=${#TRAYECTORIAS[@]}
+TRAY=${TRAYECTORIAS[$(( i % n ))]}
+SEM=${SEMILLAS[$(( (i / n) % ${#SEMILLAS[@]} ))]}
+
+MALLA=${MALLA:-96}
+DIM=${DIM:-3}
+GAMMA=${GAMMA:-0.80}
+ESQUEMA_PHI=${ESQUEMA_PHI:-fd}
+SALIDA=${SALIDA:-${SCRATCH:-$HOME}/porok_corridas}
+mkdir -p "$SALIDA"
+ETIQUETA="${TRAY}_n${MALLA}_d${DIM}_s${SEM}_${ESQUEMA_PHI}"
+
+echo "=================================================================="
+echo " trabajo  : ${PBS_JOBID:-local}  tarea ${i}"
+echo " nodo     : $(hostname)"
+echo " trayect. : $TRAY   semilla=$SEM"
+echo " malla    : ${MALLA}^${DIM}   gamma_fin=$GAMMA"
+echo " hilos    : FFTGK_WORKERS=$FFTGK_WORKERS"
+echo "=================================================================="
+
+"$PY" -u scripts/produccion.py \
+    --trayectoria "$TRAY" --semilla "$SEM" \
+    --n "$MALLA" --dim "$DIM" --gamma-fin "$GAMMA" \
+    --max-stag 120 --campos-cada 5 --esquema-phi "$ESQUEMA_PHI" \
+    --salida "$SALIDA"
+
+# ¿Llego al final? Si no, encolar otro tramo: el checkpoint tiene el estado, asi
+# que el tramo siguiente continua donde este quedo. `falta.py` tambien detecta
+# una corrida ATASCADA (dos Gamma iguales seguidos) y en ese caso NO reencola,
+# porque insistir sobre algo que no avanza consume la cuota sin producir nada.
+FALTA=$("$PY" scripts/falta.py "$SALIDA" "$ETIQUETA" "$GAMMA")
+if [[ "$FALTA" == "1" ]]; then
+    echo "[$(date +%H:%M:%S)] quedan tramos: reencolando"
+    qsub -v "SEMILLAS_POROK=${SEMILLAS_POROK:-},MALLA=$MALLA,DIM=$DIM,GAMMA=$GAMMA,SALIDA=$SALIDA" "$0"
+else
+    echo "[$(date +%H:%M:%S)] trayectoria completa (o atascada): no se reencola"
+fi

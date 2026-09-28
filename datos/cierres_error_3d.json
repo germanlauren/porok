@@ -1,0 +1,53 @@
+{
+  "escalar_max": 14.493811513412219,
+  "escalar_trD": 0.975,
+  "escalar_mediana": 1.539890214909479,
+  "tensorial_max": 0.6058087980629203,
+  "tensorial_mediana": 0.21691580282809553,
+  "n_pares": 19,
+  "control": {
+    "P1_uniaxial": {
+      "inc": 60,
+      "n_clusters": 15,
+      "bajo_l": 13,
+      "mayor": 5535,
+      "f_danada": 0.007668954354745371,
+      "phi_max": 0.9987762570381165
+    },
+    "P2_cizalla": {
+      "inc": 95,
+      "n_clusters": 75,
+      "bajo_l": 39,
+      "mayor": 3535,
+      "f_danada": 0.013659441912615741,
+      "phi_max": 0.9834285378456116
+    },
+    "P3_confinada": {
+      "inc": 100,
+      "n_clusters": 100,
+      "bajo_l": 54,
+      "mayor": 1102,
+      "f_danada": 0.007097032335069444,
+      "phi_max": 0.8330854177474976
+    },
+    "P4_no_proporcional": {
+      "inc": 60,
+      "n_clusters": 15,
+      "bajo_l": 13,
+      "mayor": 5531,
+      "f_danada": 0.007664433232060185,
+      "phi_max": 0.9987762570381165
+    },
+    "P5_excursion_grande": {
+      "inc": 60,
+      "n_clusters": 19,
+      "bajo_l": 15,
+      "mayor": 4495,
+      "f_danada": 0.006005181206597222,
+      "phi_max": 0.9976226687431335
+    }
+  },
+  "exp_alpha": 4.2019640978430965,
+  "exp_err_mediano": 70.59458428911303,
+  "exp_err_max": 884.6565183094119
+}

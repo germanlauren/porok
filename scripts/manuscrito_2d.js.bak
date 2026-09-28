@@ -1,0 +1,722 @@
+// Manuscrito GRL en .docx. Formato de AGU: 12 unidades de publicacion, donde
+// una unidad son 500 palabras o un elemento grafico. Con cuatro figuras quedan
+// ocho unidades de texto, es decir 4000 palabras; el cuerpo apunta a ~3200.
+//
+// Resumen <= 150 palabras, resumen en lenguaje llano <= 200, y hasta tres
+// "key points" de 140 caracteres cada uno sin abreviaturas.
+
+const fs = require("fs");
+const path = require("path");
+const {
+  Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
+  ImageRun, PageOrientation, Footer, PageNumber, LineRuleType,
+} = require("docx");
+
+const RAIZ = path.resolve(__dirname, "..");
+const FIG = path.join(RAIZ, "figuras_fd");
+
+// ---------------------------------------------------------------- helpers --
+const INTER = { line: 480, lineRule: LineRuleType.AUTO, after: 0 };   // doble
+
+function p(texto, opts = {}) {
+  return new Paragraph({
+    spacing: opts.spacing || INTER,
+    alignment: opts.alignment,
+    indent: opts.indent,
+    children: [new TextRun({ text: texto, size: 24, font: "Times New Roman",
+                             italics: opts.italics, bold: opts.bold })],
+  });
+}
+
+// Parrafo con tramos en cursiva/negrita: se pasa un arreglo [texto, estilo].
+function pr(tramos, opts = {}) {
+  return new Paragraph({
+    spacing: opts.spacing || INTER,
+    alignment: opts.alignment,
+    children: tramos.map(([t, est]) => new TextRun({
+      text: t, size: 24, font: "Times New Roman",
+      italics: (est || "").includes("i"), bold: (est || "").includes("b"),
+      subScript: (est || "").includes("_"), superScript: (est || "").includes("^"),
+    })),
+  });
+}
+
+function h(texto, nivel = HeadingLevel.HEADING_1) {
+  return new Paragraph({
+    heading: nivel,
+    spacing: { before: 240, after: 120 },
+    children: [new TextRun({ text: texto, size: 24, bold: true,
+                             font: "Times New Roman", color: "000000" })],
+  });
+}
+
+function figura(archivo, ancho, alto, titulo, pie) {
+  const datos = fs.readFileSync(path.join(FIG, archivo));
+  return [
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 240, after: 120 },
+      children: [new ImageRun({ data: datos, type: "png",
+                                transformation: { width: ancho, height: alto } })],
+    }),
+    new Paragraph({
+      spacing: { line: 240, lineRule: LineRuleType.AUTO, after: 240 },
+      children: [
+        new TextRun({ text: titulo, size: 22, bold: true, font: "Times New Roman" }),
+        new TextRun({ text: pie, size: 22, font: "Times New Roman" }),
+      ],
+    }),
+  ];
+}
+
+function ref(texto) {
+  return new Paragraph({
+    spacing: { line: 480, lineRule: LineRuleType.AUTO, after: 0 },
+    indent: { left: 720, hanging: 720 },
+    children: [new TextRun({ text: texto, size: 24, font: "Times New Roman" })],
+  });
+}
+
+// ------------------------------------------------------------------ texto --
+const cuerpo = [];
+
+// --- portada ---
+cuerpo.push(new Paragraph({
+  spacing: { after: 240 },
+  children: [new TextRun({
+    text: "A Second-Order Damage Tensor Is Sufficient for Damage-Induced "
+        + "Permeability; Scalar Crack Density Is Not",
+    size: 28, bold: true, font: "Times New Roman" })],
+}));
+
+cuerpo.push(p("[Author Name]¹, [Co-authors]¹", { spacing: { after: 60 } }));
+cuerpo.push(p("¹ Universidad Industrial de Santander, Bucaramanga, Colombia",
+              { spacing: { after: 60 } }));
+cuerpo.push(p("Corresponding author: [Author Name] ([email])",
+              { spacing: { after: 240 } }));
+
+// --- key points ---
+cuerpo.push(h("Key Points"));
+[
+  "Permeability of mechanically damaged rock spreads by up to 43 percent "
+  + "among loading paths that share one scalar crack density",
+  "Matching the full second-order damage tensor collapses that spread to 3 "
+  + "percent, making the tensor a sufficient state variable",
+  "An exponential damage-permeability law at its own best fit still errs by "
+  + "57 percent in the median, with a sign that flips as damage grows",
+].forEach((t, i) => cuerpo.push(p(`${i + 1}. ${t}`,
+  { spacing: { line: 240, lineRule: LineRuleType.AUTO, after: 120 } })));
+
+// --- abstract ---
+cuerpo.push(h("Abstract"));
+cuerpo.push(p(
+  "Reservoir simulators close the damage-permeability coupling with a state "
+  + "variable, yet it has never been tested whether that variable carries "
+  + "enough information, because laboratory experiments cannot hold damage "
+  + "fixed while the stress path varies. We build a numerical reference that "
+  + "can: phase-field fracture under crack-length control, so the softening "
+  + "branch is traversed, coupled to FFT-Galerkin homogenization of Darcy "
+  + "flow on the same periodic cell. Across five loading paths and 210 damage "
+  + "states on one microstructure, permeability at matched scalar crack "
+  + "density spreads by up to 43.5 percent, and the spread grows with damage. "
+  + "Matching the full second-order damage tensor instead collapses the "
+  + "spread to 3.0 percent, with no residual floor: load-path memory enters "
+  + "permeability only through the tensor. The exponential damage law in "
+  + "common use, granted its own best-fit exponent, still errs by 57 percent "
+  + "in the median, underpredicting at moderate damage and overpredicting "
+  + "beyond tr D = 0.3."));
+
+// --- plain language summary ---
+cuerpo.push(h("Plain Language Summary"));
+cuerpo.push(p(
+  "When rock deep underground is squeezed, it cracks, and the cracks let "
+  + "fluid move more easily. Engineers who forecast how much oil, gas, water "
+  + "or stored carbon dioxide will flow need a rule that turns \"how damaged "
+  + "is the rock\" into \"how easily does fluid flow\". The rules in use "
+  + "summarize damage with a single number. Nobody has been able to check "
+  + "whether one number is enough, because in the laboratory you cannot "
+  + "create two rock samples that are damaged by the same amount but in "
+  + "different ways. In a computer you can. We simulated cracks growing under "
+  + "five different loading histories and computed the flow through each "
+  + "resulting crack network directly. Rock states that share the same single "
+  + "damage number can differ in permeability by more than forty percent, and the "
+  + "disagreement widens as damage grows. But when we compare states that "
+  + "share a richer description of damage, one that also records direction, "
+  + "the disagreement almost vanishes. The practical message is that the "
+  + "directional description is worth its cost, and that it must be updated "
+  + "by the mechanics rather than guessed from porosity."));
+
+// --- 1 introduction ---
+cuerpo.push(h("1 Introduction"));
+cuerpo.push(p(
+  "Fluid transport in damaged rock is controlled by a crack network that the "
+  + "stress history creates. Reservoir and repository simulators cannot "
+  + "resolve that network, so they close the coupling: a damage variable is "
+  + "advanced by a constitutive law and permeability is read off a function "
+  + "of that variable. The closures in use are scalar and isotropic, most "
+  + "commonly the exponential form k = k₀ exp(α D) calibrated on "
+  + "core measurements (Souley et al., 2001), or a power law in porosity of "
+  + "fractal inspiration. Anisotropic alternatives exist and are built on a "
+  + "second-order damage tensor (Shao et al., 2005), following the fabric- "
+  + "and crack-tensor tradition of Oda (1982, 1985) and Snow (1969)."));
+cuerpo.push(p(
+  "Whether a state variable of either kind carries enough information is an "
+  + "open question, and the reason it stays open is experimental. Laboratory "
+  + "work has established that permeability depends on the stress path and "
+  + "not only on the final state (Ren et al., 2026; Wang et al., 2021; Liu et "
+  + "al., 2021), and that unloading is less stress-sensitive than loading "
+  + "(Zhang et al., 2020). But a core sample cannot be brought to a "
+  + "prescribed damage tensor by two different routes, so the observation "
+  + "cannot be turned into a statement about closures. It is absorbed instead "
+  + "as case-dependent recalibration."));
+cuerpo.push(p(
+  "Synthetic crack networks close part of the gap. Zhou et al. (2011) and Li "
+  + "and Li (2015) showed that permeability is not determined by crack "
+  + "density alone and that connectivity is the missing control, using "
+  + "statistically generated networks in which density, length distribution "
+  + "and clustering are free parameters. Their comparison is against a scalar "
+  + "crack density, and their cracks are inserted rather than grown. Both "
+  + "choices matter here: the topology a mechanical loading path actually "
+  + "produces is a small and biased subset of the topologies a generator can "
+  + "produce, and the tensor, not the scalar, is what simulators carry."));
+cuerpo.push(p(
+  "The numerical ingredients to do the controlled experiment now exist. "
+  + "Phase-field fracture (Bourdin et al., 2000, 2008) posed on a periodic "
+  + "cell and solved with FFT-based homogenization gives mechanically "
+  + "consistent crack populations, and crack-length control (Aranda & "
+  + "Segurado, 2025) traverses the unstable branch on which those "
+  + "populations coalesce. The same spectral machinery solves the Darcy "
+  + "problem on the same grid (Vondřejc et al., 2014). Combining them, damage "
+  + "and permeability are measured on the same cell at the same instant, and "
+  + "the loading path is a free variable while the damage state is an "
+  + "observable rather than an input."));
+cuerpo.push(p(
+  "We use that setup to ask three questions with parameter-free answers. "
+  + "First, how much can permeability differ between states that a scalar "
+  + "closure is obliged to treat as identical? That difference is the "
+  + "irreducible error of the entire scalar family, independent of "
+  + "functional form and calibration. Second, does the same test applied to "
+  + "the full second-order tensor also show a floor, which would mean no "
+  + "second-order closure can work? Third, given those bounds, how far off "
+  + "are the closures actually in use?"));
+
+// --- 2 methods ---
+cuerpo.push(h("2 Reference Model"));
+cuerpo.push(h("2.1 Microstructure and fracture", HeadingLevel.HEADING_2));
+cuerpo.push(pr([
+  ["We work on a periodic unit cell discretized on a 96 × 96 grid. The "
+   + "matrix is linear elastic and isotropic, ", ""],
+  ["E", "i"], [" = 1, ", ""], ["ν", "i"], [" = 0.2 in nondimensional "
+   + "units. Fracture toughness ", ""],
+  ["G", "i"], ["c", "i_"], [" is heterogeneous: a lognormal field of mean "
+   + "2 × 10⁻³ with 15% dispersion and a six-pixel correlation "
+   + "length, into which 40 pre-existing microcracks are seeded as short "
+   + "segments of length 0.10", ""],
+  ["L", "i"], [" and random orientation where ", ""],
+  ["G", "i"], ["c", "i_"], [" is reduced to 12% of its mean. The seeds are "
+   + "not cosmetic. With a smooth toughness field alone, AT2 phase-field "
+   + "damage under strain control grows diffuse and never localizes, which "
+   + "produces a damage tensor that is not a crack density at all; the "
+   + "seeds put the model in the regime where cracks nucleate, propagate and "
+   + "link, and which seeds are selected is exactly the mechanism under "
+   + "test.", ""],
+]));
+cuerpo.push(pr([
+  ["Fracture follows the AT2 regularization with the volumetric-deviatoric "
+   + "split of Amor et al. (2009) and the irreversibility of Miehe et al. "
+   + "(2010), in which the driving field is the running maximum of the "
+   + "positive elastic energy density. The regularization length is "
+   + "ℓ = 4 pixels = ", ""],
+  ["L", "i"], ["/24. Equilibrium and the damage equation are solved "
+   + "alternately on the spectral grid. The gradient term of the damage "
+   + "equation, the only term that smooths φ, is discretized with forward "
+   + "differences. The rotated scheme used for elasticity and flow (Willot, "
+   + "2015) has symbols that vanish on whole lines of the three-dimensional "
+   + "Fourier lattice, and on those modes the damage field would go "
+   + "unregularized; in two dimensions the choice moves permeability by less "
+   + "than 1% over the common range.", ""],
+]));
+cuerpo.push(p(
+  "Under load control the response reaches a limit point where the load "
+  + "factor stops increasing, and everything of interest — coalescence, the "
+  + "transition from diffuse damage to a connected crack — lies beyond it. "
+  + "We therefore prescribe the crack length and solve for the load factor "
+  + "(Aranda & Segurado, 2025), which converts the limit point into a "
+  + "regular point of the controlled problem. Figure 1a shows the resulting "
+  + "branch: the load factor peaks at λ = 0.063 and then falls by 14% "
+  + "while the crack keeps growing. A load-controlled sweep would have "
+  + "stopped at the peak, at tr D = 0.375, and missed the states where the "
+  + "closures diverge most."));
+
+cuerpo.push(h("2.2 Damage tensor", HeadingLevel.HEADING_2));
+cuerpo.push(pr([
+  ["From the phase field φ we extract a second-order damage tensor as a "
+   + "magnitude times a direction, ", ""],
+  ["D", "ib"], ["ij", "i_"], [" = Γ ", ""], ["N", "ib"], ["ij", "i_"],
+  [", with Γ = (1/|Y|) ∫ φ²/ℓ d", ""], ["V", "i"],
+  [" and ", ""], ["N", "ib"], ["ij", "i_"], [" = ∫ ∂", ""],
+  ["i", "i"], ["φ ∂", ""], ["j", "i"], ["φ d", ""], ["V", "i"],
+  [" / ∫ |∇φ|² d", ""], ["V", "i"],
+  [". Taking the magnitude from the φ² term and the direction from "
+   + "the normalized gradient tensor removes a mesh-orientation bias: the "
+   + "naive gradient-only estimator varies by 14.6% between a crack aligned "
+   + "with the grid and one at 45°, whereas the split estimator varies "
+   + "by 0.52%. We also record a localization ratio ", ""],
+  ["R", "i"], [", the ratio of gradient to bulk contributions to the "
+   + "regularized crack surface. The two are equal for the optimal AT2 "
+   + "profile, so the continuum value is one; diffuse damage falls below it "
+   + "and a formed crack approaches it from above. Evaluated discretely the "
+   + "ratio is scheme-dependent — our spectral gradient returns values about "
+   + "twice those of second-order finite differences, uniformly across the "
+   + "sweep — so we read ", ""],
+  ["R", "i"], [" as a relative indicator between paths and anchor statements "
+   + "about crack formation on the connectivity of the damaged phase, which "
+   + "no choice of derivative can shift.", ""],
+]));
+
+cuerpo.push(h("2.3 Permeability", HeadingLevel.HEADING_2));
+cuerpo.push(pr([
+  ["Permeability is computed on the same grid by FFT-Galerkin homogenization "
+   + "of the Darcy problem (Vondřejc et al., 2014), using the rotated "
+   + "discrete gradient of Willot (2015), which suppresses the spurious "
+   + "oscillations that the spectral operator produces at high contrast. "
+   + "The local conductivity interpolates between matrix and crack as "
+   + "k(φ) = ", ""],
+  ["k", "i"], ["m", "i_"], ["[1 + (χ − 1)φ²] with "
+   + "χ = 10⁴, and all permeabilities below are reported in units "
+   + "of ", ""],
+  ["k", "i"], ["m", "i_"], [". The linear system is solved by conjugate "
+   + "gradients to a relative residual of 10⁻¹⁰, normalized "
+   + "against the physical load rather than the right-hand side, which "
+   + "matters when the exact solution is nearly trivial. Primal and dual "
+   + "formulations agree to 10⁻¹³, as they must when both use "
+   + "the same discrete gradient symbol, and we use that identity as a "
+   + "correctness test rather than as a discretization bound.", ""],
+]));
+cuerpo.push(p(
+  "This is a Darcy-scale surrogate, not Stokes flow in an open fracture with "
+  + "a physical aperture. It is the right level for the questions posed here, "
+  + "which are about whether a given state variable determines permeability "
+  + "at all; the map from geometry to permeability is local and isotropic by "
+  + "construction, so any path dependence we find is a property of the "
+  + "geometry, not of the flow model. Section 5 returns to what changes when "
+  + "the cubic law is used instead."));
+
+cuerpo.push(h("2.4 Loading paths", HeadingLevel.HEADING_2));
+cuerpo.push(p(
+  "Five paths act on the identical microstructure, so the microstructure is "
+  + "the control and the path is the variable. Three are proportional and "
+  + "differ in confinement, which is the effective-stress path of depletion: "
+  + "uniaxial (P1), pure shear (P2) and confined (P3). Two are "
+  + "non-proportional: the loading direction is rotated by 90° partway "
+  + "through, after an excursion to Γ = 0.15 (P4) or Γ = 0.32 (P5). The "
+  + "first is sub-dominant and the second dominant in stored energy. P4 and P5 end loading in the same direction as P1 "
+  + "and reach the same crack density, so any difference from P1 is "
+  + "attributable to history and not to the final loading direction. In "
+  + "total the sweep contains 210 damage states spanning tr D from 0.015 to "
+  + "0.63 (Figure 1b)."));
+
+// --- figura 1 ---
+figura("fig1_referencia.png", 612, 254,
+  "Figure 1. ",
+  "The reference. (a) Load factor against prescribed crack density for the "
+  + "uniaxial path. Crack-length control converts the limit point into a "
+  + "regular point and follows the softening branch, on which the load falls "
+  + "by 14% while the crack grows. (b) Effective permeability along the "
+  + "loading axis for the five paths, in units of the matrix permeability."
+).forEach((x) => cuerpo.push(x));
+
+// --- 3 results ---
+cuerpo.push(h("3 Results"));
+cuerpo.push(h("3.1 Load-path memory is real but selective", HeadingLevel.HEADING_2));
+cuerpo.push(p(
+  "P4 and P5 differ from the monotonic path P1 only by an excursion in the "
+  + "orthogonal direction before the final loading leg. The two behave "
+  + "oppositely (Figure 2a). P4, whose excursion is sub-dominant, departs "
+  + "from P1 by at most 5.25% during the excursion and then converges: by "
+  + "tr D = 0.36 the discrepancy is 0.002%, more than three orders of "
+  + "magnitude below its peak, and it stays below 0.012% up to tr D = 0.63; "
+  + "the two paths have become indistinguishable. P5, whose excursion is "
+  + "dominant, never converges: from tr D = 0.405 to the end of the sweep "
+  + "it holds on a plateau of 12.6 to 14.2%, and at tr D = 0.405 its damage "
+  + "tensor has a visibly different shape (Dᵧᵧ/tr D = 0.529 against 0.644 "
+  + "for P1)."));
+cuerpo.push(p(
+  "The asymmetry is structural, not numerical. The driving field is a "
+  + "running maximum, so an excursion whose stored energy is later exceeded "
+  + "by the final leg is overwritten pointwise and leaves no trace, while an "
+  + "excursion that dominates cannot be erased. The material forgets "
+  + "sub-dominant history by construction. Any closure calibrated only on "
+  + "monotonic tests will therefore look adequate on a large class of "
+  + "non-proportional paths and fail on the rest, which is a plausible "
+  + "reading of why laboratory stress-path effects are reported "
+  + "inconsistently."));
+cuerpo.push(p(
+  "Figure 2b shows what distinguishes the states, and the connectivity of the "
+  + "damaged phase makes it unambiguous. On the uniaxial path the damaged "
+  + "phase becomes a single connected cluster at tr D = 0.375 and stays one; "
+  + "at that damage the shear path has not yet formed any cluster, and even "
+  + "at tr D = 0.63 its largest holds only 59% of the damaged phase. Its "
+  + "localization ratio stays lower throughout. One path has formed "
+  + "a crack and the other has not. No state in the sweep percolates, so all "
+  + "comparisons below are pre-percolation."));
+
+figura("fig2_camino.png", 612, 254,
+  "Figure 2. ",
+  "Load-path memory. (a) Relative departure of permeability from the "
+  + "monotonic path, at matched crack density, for a sub-dominant excursion "
+  + "(P4) and a dominant one (P5); dotted lines mark where each path rotates "
+  + "its loading direction. The sub-dominant excursion is erased; the "
+  + "dominant one is not. (b) The localization ratio for the uniaxial and "
+  + "shear paths over the same states."
+).forEach((x) => cuerpo.push(x));
+
+cuerpo.push(h("3.2 No scalar closure escapes a floor that reaches 43%", HeadingLevel.HEADING_2));
+cuerpo.push(p(
+  "A scalar closure asserts that permeability is some function of crack "
+  + "density. Whatever that function is, it must return one value for one "
+  + "value of tr D. The spread of the reference permeability across states "
+  + "that share tr D is therefore a lower bound on the error of the whole "
+  + "family: no functional form, no calibration, no extra fitted parameter "
+  + "can reduce it."));
+cuerpo.push(p(
+  "That bound is not small and it is not constant (Figure 3a). It grows "
+  + "monotonically with damage, from 0.8% at tr D = 0.015 to 43.5% at "
+  + "tr D = 0.63, with a median of 9.0% over the sweep. The growth matters "
+  + "more than the peak value: the closure is most reliable exactly where "
+  + "damage is negligible and least reliable where it drives the flow. "
+  + "This reproduces, for mechanically grown cracks and against a tensor-"
+  + "consistent measure of damage, the non-uniqueness that Zhou et al. "
+  + "(2011) and Li and Li (2015) found for inserted networks, and it "
+  + "serves here as a consistency check on the setup."));
+
+cuerpo.push(h("3.3 The second-order tensor closes the gap", HeadingLevel.HEADING_2));
+cuerpo.push(p(
+  "We then applied the identical test to the tensor. Among all pairs of "
+  + "states drawn from different loading paths with tr D > 0.10, we "
+  + "selected those whose full damage tensors agree to within 2% in relative "
+  + "Frobenius norm, and asked how much their permeabilities differ. There "
+  + "are 59 such pairs, spanning tr D from 0.105 to 0.63 and every "
+  + "combination of paths; P4 and P5 before P4 rotates are excluded, since "
+  + "they share one history and are the same state. The largest "
+  + "discrepancy is 2.97% and the median is 0.21%."));
+cuerpo.push(p(
+  "The stronger statement is in the scaling (Figure 3b). Plotted against "
+  + "tensor mismatch, the permeability discrepancy follows a line of unit "
+  + "slope (fitted log-log slope 1.2) over three decades and continues down "
+  + "to mismatches of 0.007%, with no floor. A hidden variable — connectivity, tortuosity, anything "
+  + "the second-order tensor cannot see — would appear as a plateau: pairs "
+  + "with identical tensors but persistently different permeabilities. "
+  + "There is none. In this regime the second-order damage tensor is a "
+  + "sufficient state variable, and the load-path memory documented in "
+  + "Section 3.1 enters permeability entirely through it."));
+cuerpo.push(p(
+  "We had expected the opposite. The hypothesis that motivated the study "
+  + "was that mechanically grown topology would defeat any second-order "
+  + "descriptor, as it defeats the scalar. The data refute that hypothesis "
+  + "for the pre-percolation regime, and the refutation is the more useful "
+  + "result: it says that the tensor already implemented in anisotropic "
+  + "damage simulators is, in principle, enough — the error lies in the "
+  + "functional forms bolted onto it, and in evolving it from porosity "
+  + "rather than from the mechanics."));
+
+figura("fig3_escalar_vs_tensor.png", 612, 254,
+  "Figure 3. ",
+  "Scalar closures fail where tensor closures need not. (a) Spread of "
+  + "permeability among states sharing a crack density, which lower-bounds "
+  + "the error of any closure of the form K = f(tr D); only levels reached by "
+  + "at least three paths are shown. (b) The same comparison for the full "
+  + "tensor: every cross-path pair with tr D > 0.10, permeability discrepancy "
+  + "against tensor mismatch. Green marks pairs matched to within 2%. The "
+  + "one-to-one scaling continues to the smallest mismatches, so there is no "
+  + "residual attributable to a variable the tensor cannot see."
+).forEach((x) => cuerpo.push(x));
+
+cuerpo.push(h("3.4 What the closures in use actually cost", HeadingLevel.HEADING_2));
+cuerpo.push(pr([
+  ["Those two bounds frame the closures in service. We fit the exponential "
+   + "damage law ", ""],
+  ["k", "i"], [" = ", ""], ["k", "i"], ["0", "_"],
+  [" exp(α tr ", ""], ["D", "ib"], [") to the entire reference by least "
+   + "squares in the logarithm, which grants it its best possible exponent "
+   + "rather than a literature value. The optimum is α = 6.7, inside "
+   + "the range of 5 to 25 that is used in practice. Even so, the median "
+   + "error is 57.1%. Figure 4 shows the structure of the failure: the "
+   + "exponential underpredicts by about 60% on average for 0.1 < tr D < "
+   + "0.3, then crosses over and overpredicts, by 38% on average beyond "
+   + "tr D = 0.3 and by a factor of 2.3 at the largest damage in the sweep. "
+   + "At the literature value α = 5 the median error is 63.7%. The "
+   + "failure is one of functional form: the reference grows sub-linearly "
+   + "in tr ", ""],
+  ["D", "ib"], [" (a power-law fit gives exponent 0.88), not exponentially.", ""],
+]));
+cuerpo.push(pr([
+  ["A two-parameter linear tensor closure, ", ""],
+  ["K", "ib"], ["ij", "i_"], [" = ", ""], ["K", "ib"], ["0", "_"],
+  [" δ", ""], ["ij", "i_"], [" + ", ""], ["a", "i"], [" (tr ", ""],
+  ["D", "ib"], [") δ", ""], ["ij", "i_"], [" + ", ""], ["b", "i"],
+  [" ", ""], ["D", "ib"], ["ij", "i_"],
+  [", fitted to the reference over 0.15 < tr ", ""], ["D", "ib"],
+  [" ≤ 0.405, gives a median error of 1.3% and a maximum of 11.8%, with "
+   + "K", ""],
+  ["0", "_"], [" = 11.0, ", ""], ["a", "i"], [" = 362 and ", ""],
+  ["b", "i"], [" = −150 in matrix-permeability units. The negative "
+   + "sign on the tensor term reproduces the projection structure of the "
+   + "Oda–Snow fracture permeability tensor, in which flow runs along "
+   + "the crack plane and not across it, though at less than half the "
+   + "strength that the pure projection would give. Extended to tr D = 0.63, "
+   + "the same linear form degrades to a median of 8.1%: the reference bends "
+   + "away from linear at high damage. Because the matched-tensor bound of "
+   + "Section 3.3 stays at 3% over that range, this is model-form error in "
+   + "the linear ansatz, not path memory, and a better function of the same "
+   + "tensor exists. Dropping the tensor term roughly doubles the error below "
+   + "tr D = 0.4 (2.4% against 1.3%); the gain is bounded by the modest "
+   + "permeability anisotropy of this two-dimensional cell (|K", ""],
+  ["xy", "i_"], ["|/K", ""], ["yy", "i_"], [" ≤ 2.9%, and K", ""], ["xx", "i_"], ["/K", ""], ["yy", "i_"], [" = 1.14 at the end of the uniaxial path); the "
+   + "anisotropic term should matter considerably more in three dimensions "
+   + "and under strongly oriented loading.", ""],
+]));
+
+figura("fig4_cierres.png", 400, 273,
+  "Figure 4. ",
+  "Error of three closures against the reference, over all 210 states. The "
+  + "exponential damage law is shown at its own best-fit exponent, not at a "
+  + "literature value; the two linear closures are fitted over the whole "
+  + "sweep. The vertical axis is symmetric-logarithmic with a "
+  + "linear band below 10%."
+).forEach((x) => cuerpo.push(x));
+
+// --- 4 implications ---
+cuerpo.push(h("4 Implications"));
+cuerpo.push(p(
+  "For simulation practice the results separate cleanly. The variable is not "
+  + "the problem; the function is. Replacing an exponential scalar law by a "
+  + "linear tensor law reduces the median error from 57% to 8% over the "
+  + "whole sweep, and to about 1% below tr D = 0.4, at the cost of two calibration constants and of carrying a "
+  + "tensor that anisotropic damage codes already carry. Conversely, no "
+  + "amount of recalibration rescues a scalar closure: its floor rises with "
+  + "damage and reaches 43% in this sweep."));
+cuerpo.push(p(
+  "The second implication concerns how the tensor is obtained. Because "
+  + "permeability follows the tensor faithfully, the accuracy of a "
+  + "prediction reduces to the accuracy with which the tensor is evolved. "
+  + "The path-memory results show what that demands: two histories reaching "
+  + "the same crack density can carry tensors differing enough to move "
+  + "permeability by 15%. A tensor inferred from porosity, or advanced by a "
+  + "law calibrated on monotonic loading, will not reproduce that. The "
+  + "mechanics has to be in the loop."));
+cuerpo.push(p(
+  "The third is methodological and is where this work sits relative to the "
+  + "roughness literature. Perez et al. (2025) showed that the cubic law and "
+  + "Darcy are misspecified for a static rough fracture and corrected them "
+  + "by Bayesian inference on the aperture field. That is the complementary "
+  + "error to the one measured here: they hold the geometry fixed and ask "
+  + "what the flow model gets wrong, we hold the flow model fixed and ask "
+  + "what the geometry descriptor gets wrong. Both corrections are needed, "
+  + "and they compose, since one acts on the aperture-to-conductivity map "
+  + "and the other on the damage-to-geometry map."));
+
+// --- 5 limitations ---
+cuerpo.push(h("5 Limitations"));
+cuerpo.push(p(
+  "Four limits bound the claims. The sweep is two-dimensional and uses one "
+  + "microstructural realization, so the numbers are specific to this cell; "
+  + "the qualitative separation between the scalar and tensor tests is "
+  + "robust to that, since both tests are internal comparisons on the same "
+  + "cell, but the 43.5% and 3.0% figures should be read as this cell's "
+  + "values. Percolation is not reached: up to tr D = 0.63 no state has a "
+  + "spanning cluster, and the sufficiency of the second-order tensor is "
+  + "asserted only pre-percolation. It is precisely at percolation that a "
+  + "topological variable would be expected to escape a second-order "
+  + "descriptor, and testing that requires three dimensions, where the "
+  + "percolation threshold is far lower."));
+cuerpo.push(p(
+  "Third, permeability is computed at the Darcy level with a local "
+  + "conductivity interpolated in the phase field, not by solving Stokes "
+  + "flow through an open fracture of physical aperture. A cubic-law or "
+  + "Stokes-Brinkman treatment weights the aperture cubed and would amplify "
+  + "differences between localized and diffuse states. Our aperture "
+  + "extraction is not yet verified to the standard the rest of the pipeline "
+  + "meets — comparison against the Sneddon solution is confounded by the "
+  + "regularization length and by periodic image interaction — so we "
+  + "deliberately do not report the Oda-Snow tensor, which would require "
+  + "the aperture-cubed moment. Fourth, the damage model is AT2 with a "
+  + "maximum-based history field; the erasure of sub-dominant excursions is "
+  + "a property of that irreversibility condition, and a model with a "
+  + "different memory structure would behave differently."));
+
+// --- 6 conclusions ---
+cuerpo.push(h("6 Conclusions"));
+cuerpo.push(p(
+  "A coupled phase-field and FFT-homogenization reference, run over five "
+  + "loading paths on one microstructure, bounds two families of "
+  + "damage-permeability closure without any fitting. Any closure written as "
+  + "a function of scalar crack density carries an irreducible error that "
+  + "grows with damage and reaches 43.5%. Any closure written as a function "
+  + "of the second-order damage tensor is not similarly bounded: matched "
+  + "tensors give permeabilities agreeing to 3.0%, with unit-slope scaling "
+  + "and no residual floor, so the tensor is a sufficient state variable "
+  + "before percolation. Load-path memory is real — a dominant "
+  + "non-proportional excursion shifts permeability by 13 to 14% at matched crack "
+  + "density — but it acts on permeability only through the tensor, and a "
+  + "sub-dominant excursion is erased entirely. The exponential damage law "
+  + "in common use, given its best-fit exponent, still errs by 57% in the "
+  + "median, while a two-parameter linear tensor closure fitted to the same "
+  + "data errs by 8% over the whole sweep and about 1% below tr D = 0.4."));
+
+// --- open research ---
+cuerpo.push(h("Open Research"));
+cuerpo.push(p(
+  "The solver, the analysis scripts and the complete state table for the 210 "
+  + "damage states are archived at [DOI to be assigned on acceptance]. The "
+  + "code depends only on NumPy and SciPy; all figures in this paper are "
+  + "regenerated by a single script from the archived state table."));
+
+cuerpo.push(h("Acknowledgments"));
+cuerpo.push(p("[To be completed. Declare funding and any competing interests.]"));
+
+// --- references ---
+cuerpo.push(h("References"));
+[
+  "Amor, H., Marigo, J.-J., & Maurini, C. (2009). Regularized formulation of "
+  + "the variational brittle fracture with unilateral contact: Numerical "
+  + "experiments. Journal of the Mechanics and Physics of Solids, 57(8), "
+  + "1209–1229. https://doi.org/10.1016/j.jmps.2009.04.011",
+
+  "Aranda, P., & Segurado, J. (2025). A crack-length control technique for "
+  + "phase-field fracture in FFT homogenization. International Journal for "
+  + "Numerical Methods in Engineering, 126(2), e7664. "
+  + "https://doi.org/10.1002/nme.7664",
+
+  "Bourdin, B., Francfort, G. A., & Marigo, J.-J. (2000). Numerical "
+  + "experiments in revisited brittle fracture. Journal of the Mechanics and "
+  + "Physics of Solids, 48(4), 797–826. "
+  + "https://doi.org/10.1016/S0022-5096(99)00028-9",
+
+  "Bourdin, B., Francfort, G. A., & Marigo, J.-J. (2008). The variational "
+  + "approach to fracture. Journal of Elasticity, 91(1–3), 5–148. "
+  + "https://doi.org/10.1007/s10659-007-9107-3",
+
+  "Chen, Y. (2023). High-performance computational homogenization of "
+  + "Stokes–Brinkman flow with an Anderson-accelerated FFT method. "
+  + "International Journal for Numerical Methods in Fluids, 95(9), "
+  + "1441–1467. https://doi.org/10.1002/fld.5199",
+
+  "Kachanov, M. (1993). Elastic solids with many cracks and related problems. "
+  + "Advances in Applied Mechanics, 30, 259–445. "
+  + "https://doi.org/10.1016/S0065-2156(08)70176-5",
+
+  "Li, L., & Li, K. (2015). Permeability of microcracked solids with random "
+  + "crack networks: Role of connectivity and opening aperture. Transport in "
+  + "Porous Media, 109(1), 217–237. "
+  + "https://doi.org/10.1007/s11242-015-0510-0",
+
+  "Liu, C., Song, Z., Zhang, D., & Zhao, H. (2021). Mechanical response of "
+  + "permeability evolution to anisotropic structure of reservoir rock under "
+  + "true triaxial stress path. Geomechanics and Geophysics for Geo-Energy "
+  + "and Geo-Resources, 7(3), 59. https://doi.org/10.1007/s40948-021-00249-2",
+
+  "Miehe, C., Hofacker, M., & Welschinger, F. (2010). A phase field model for "
+  + "rate-independent crack propagation: Robust algorithmic implementation "
+  + "based on operator splits. Computer Methods in Applied Mechanics and "
+  + "Engineering, 199(45–48), 2765–2778. "
+  + "https://doi.org/10.1016/j.cma.2010.04.011",
+
+  "Moulinec, H., & Suquet, P. (1998). A numerical method for computing the "
+  + "overall response of nonlinear composites with complex microstructure. "
+  + "Computer Methods in Applied Mechanics and Engineering, 157(1–2), "
+  + "69–94. https://doi.org/10.1016/S0045-7825(97)00218-1",
+
+  "Oda, M. (1982). Fabric tensor for discontinuous geological materials. "
+  + "Soils and Foundations, 22(4), 96–108. "
+  + "https://doi.org/10.3208/sandf1972.22.4_96",
+
+  "Oda, M. (1985). Permeability tensor for discontinuous rock masses. "
+  + "Géotechnique, 35(4), 483–495. "
+  + "https://doi.org/10.1680/geot.1985.35.4.483",
+
+  "Perez, S., Doster, F., Maes, J., Menke, H., ElSheikh, A., & Busch, A. "
+  + "(2025). When cubic law and Darcy fail: Bayesian correction of model "
+  + "misspecification in fracture conductivities. Geophysical Research "
+  + "Letters, 52(18), e2025GL117776. https://doi.org/10.1029/2025GL117776",
+
+  "Ren, S., Liang, W., Chen, Y., Wang, Z., Luo, H., & Zou, L. (2026). "
+  + "Experimental study on damage and permeability evolution in coal measure "
+  + "rocks under variable deviatoric stress paths. Rock Mechanics and Rock "
+  + "Engineering. https://doi.org/10.1007/s00603-026-05901-5",
+
+  "Shao, J. F., Zhou, H., & Chau, K. T. (2005). Coupling between anisotropic "
+  + "damage and permeability variation in brittle rocks. International "
+  + "Journal for Numerical and Analytical Methods in Geomechanics, 29(12), "
+  + "1231–1247. https://doi.org/10.1002/nag.457",
+
+  "Snow, D. T. (1969). Anisotropic permeability of fractured media. Water "
+  + "Resources Research, 5(6), 1273–1289. "
+  + "https://doi.org/10.1029/WR005i006p01273",
+
+  "Souley, M., Homand, F., Pepa, S., & Hoxha, D. (2001). Damage-induced "
+  + "permeability changes in granite: A case example at the URL in Canada. "
+  + "International Journal of Rock Mechanics and Mining Sciences, 38(2), "
+  + "297–310. https://doi.org/10.1016/S1365-1609(01)00002-8",
+
+  "Vondřejc, J., Zeman, J., & Marek, I. (2014). An FFT-based Galerkin method "
+  + "for homogenization of periodic media. Computers & Mathematics with "
+  + "Applications, 68(3), 156–173. "
+  + "https://doi.org/10.1016/j.camwa.2014.05.014",
+
+  "Wang, Z., Li, W., & Hu, Y. (2021). Experimental study on mechanical "
+  + "behavior, permeability, and damage characteristics of Jurassic sandstone "
+  + "under varying stress paths. Bulletin of Engineering Geology and the "
+  + "Environment, 80(6), 4423–4439. "
+  + "https://doi.org/10.1007/s10064-021-02214-5",
+
+  "Willot, F. (2015). Fourier-based schemes for computing the mechanical "
+  + "response of composites with accurate local fields. Comptes Rendus "
+  + "Mécanique, 343(3), 232–245. "
+  + "https://doi.org/10.1016/j.crme.2014.12.005",
+
+  "Zhang, C., Bai, Q., & Chen, Y. (2020). Using stress path-dependent "
+  + "permeability law to evaluate permeability enhancement and coalbed "
+  + "methane flow in protected coal seam: A case study. Geomechanics and "
+  + "Geophysics for Geo-Energy and Geo-Resources, 6(3), 53. "
+  + "https://doi.org/10.1007/s40948-020-00177-7",
+
+  "Zhou, C., Li, K., & Pang, X. (2011). Effect of crack density and "
+  + "connectivity on the permeability of microcracked solids. Mechanics of "
+  + "Materials, 43(12), 969–978. "
+  + "https://doi.org/10.1016/j.mechmat.2011.08.011",
+].forEach((t) => cuerpo.push(ref(t)));
+
+// ------------------------------------------------------------------- doc --
+const doc = new Document({
+  styles: {
+    default: {
+      document: { run: { font: "Times New Roman", size: 24 } },
+    },
+  },
+  sections: [{
+    properties: {
+      page: {
+        size: { width: 12240, height: 15840 },          // US Letter, en DXA
+        margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 },
+      },
+      orientation: PageOrientation.PORTRAIT,
+    },
+    footers: {
+      default: new Footer({
+        children: [new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ children: [PageNumber.CURRENT], size: 20,
+                                   font: "Times New Roman" })],
+        })],
+      }),
+    },
+    children: cuerpo,
+  }],
+});
+
+Packer.toBuffer(doc).then((buf) => {
+  const salida = path.join(RAIZ, "manuscrito_GRL.docx");
+  fs.writeFileSync(salida, buf);
+  console.log("->", salida);
+});

@@ -1,0 +1,14 @@
+{
+  "escalar_irreducible_max": 43.47671920303394,
+  "escalar_irreducible_trD": 0.63,
+  "escalar_irreducible_mediana": 9.002590001413068,
+  "tensorial_max": 2.968253340316347,
+  "tensorial_mediana": 0.20915348159093755,
+  "n_pares_tensorial": 59,
+  "exp_alpha": 6.694322432134365,
+  "exp_err_mediano": 57.06216399174274,
+  "exp_err_max": 257.29570829984925,
+  "pot_m": 0.8822864722552954,
+  "pot_err_mediano": 7.89236464654161,
+  "pot_err_max": 42.42796022967939
+}
