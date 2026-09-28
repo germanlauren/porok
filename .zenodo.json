@@ -1,0 +1,18 @@
+{
+  "title": "porok: damage-induced permeability from phase-field fracture and FFT-Galerkin homogenization",
+  "version": "1.0.0",
+  "upload_type": "software",
+  "license": "MIT",
+  "creators": [
+    {"name": "Romero Suárez, German Orlando",
+     "affiliation": "Universidad Industrial de Santander, Bucaramanga, Colombia"},
+    {"name": "Villegas Bermúdez, Diego Fernando",
+     "affiliation": "Universidad Industrial de Santander, Bucaramanga, Colombia"},
+    {"name": "Velilla Díaz, Wilmer",
+     "affiliation": "Universidad de La Serena, La Serena, Chile"}
+  ],
+  "keywords": ["damage mechanics", "permeability", "phase-field fracture",
+               "FFT homogenization", "reservoir geomechanics", "Oda-Snow",
+               "cubic law"],
+  "description": "Code and state tables behind the manuscript 'A Second-Order Damage Tensor Is Sufficient for Damage-Induced Permeability; Scalar Crack Density Is Not'. Includes the solver (elasticity, AT2 phase field with crack-length control, FFT-Galerkin Darcy homogenization, damage tensor and aperture extraction), the analysis scripts, and the state tables for the two-dimensional sweep (210 states), the two-dimensional sweep with aperture (212 states) and the three-dimensional sweep at 96^3 (410 states). Every figure in the paper is regenerated from these tables by the included scripts."
+}

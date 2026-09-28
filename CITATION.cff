@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "If you use this software or data, please cite both the archive and the paper."
+title: "porok: damage-induced permeability from phase-field fracture and FFT-Galerkin homogenization"
+version: 1.0.0
+date-released: 2026-09-27
+license: MIT
+type: software
+authors:
+  - family-names: "Romero Suárez"
+    given-names: "German Orlando"
+    affiliation: "Universidad Industrial de Santander, Bucaramanga, Colombia"
+    email: german2218069@correo.uis.edu.co
+  - family-names: "Villegas Bermúdez"
+    given-names: "Diego Fernando"
+    affiliation: "Universidad Industrial de Santander, Bucaramanga, Colombia"
+  - family-names: "Velilla Díaz"
+    given-names: "Wilmer"
+    affiliation: "Universidad de La Serena, La Serena, Chile"
+keywords:
+  - damage mechanics
+  - permeability
+  - phase-field fracture
+  - FFT homogenization
+  - reservoir geomechanics
+abstract: >-
+  Periodic-cell reference coupling phase-field fracture under crack-length
+  control to FFT-Galerkin homogenization of Darcy flow, used to bound scalar
+  and second-order-tensor damage-permeability closures without fitting, and to
+  place the cubic law and the Oda-Snow tensor relative to percolation.
